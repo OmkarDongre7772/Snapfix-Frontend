@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SnapFix — Civic Infrastructure, Fixed Faster</title>
+    <meta name="description" content="SnapFix helps citizens report civic issues like potholes, broken streetlights and water leaks, and connects them with skilled workers to get things fixed fast." />
+    <meta name="theme-color" content="#E8552E" />
+
+    <!--
+      Blocking theme script — runs synchronously before any CSS or React paints.
+      This prevents the flash-of-default-theme on page load / refresh.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('snapfix_theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
+          if (theme === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) { /* ignore — private browsing may block localStorage */ }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

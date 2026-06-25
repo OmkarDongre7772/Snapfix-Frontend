@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Light theme CSS variables (default) ────────────────────────── */
+:root {
+  --color-bg:           #FAFAF8;
+  --color-surface:      #FFFFFF;
+  --color-text:         #1A1A1A;
+  --color-text-muted:   #6B7280;
+  --color-text-subtle:  #9CA3AF;
+  --color-border:       #E5E5E3;
+  --color-accent-light: #FDF0EC;
+  --color-success-light:#EDF7F2;
+  --color-warning-light:#FDF8EC;
+  --color-danger-light: #FEF2F2;
+  --color-muted-bg:     #F3F4F6;
+  --color-muted-text:   #6B7280;
+}
+
+/* ── Dark theme CSS variables ───────────────────────────────────── */
+.dark {
+  --color-bg:           #111110;
+  --color-surface:      #1C1C1A;
+  --color-text:         #F0F0EE;
+  --color-text-muted:   #A3A3A0;
+  --color-text-subtle:  #6B6B68;
+  --color-border:       #2E2E2B;
+  --color-accent-light: #2D1A13;
+  --color-success-light:#122219;
+  --color-warning-light:#221C0E;
+  --color-danger-light: #1F1010;
+  --color-muted-bg:     #252523;
+  --color-muted-text:   #A3A3A0;
+}
+
+/* ── Base resets ─────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    /* smooth theme transition */
+    transition: background-color 0.2s ease, color 0.15s ease;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans text-base;
+    min-height: 100dvh;
+  }
+
+  h1 { @apply text-3xl font-semibold tracking-tight; }
+  h2 { @apply text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-xl  font-semibold; }
+  h4 { @apply text-lg  font-medium; }
+
+  a  { @apply text-accent hover:text-accent-hover transition-colors duration-150; }
+
+  /* Scrollbar — subtle in both themes */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+}
+
+/* ── Component shortcuts ─────────────────────────────────────────── */
+@layer components {
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  /* ring-offset matches surface in dark mode */
+  .dark .focus-ring { --tw-ring-offset-color: var(--color-surface); }
+
+  .divider       { @apply border-t border-border my-6; }
+  .field-label   { @apply block text-sm font-medium text-text mb-1; }
+  .section-label { @apply text-xs font-semibold uppercase tracking-widest text-text-muted; }
+
+  /* Input base — shared between Input.jsx and any inline inputs */
+  .input-base {
+    @apply w-full rounded border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-subtle
+           transition-colors duration-150
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+           border-border hover:border-text-muted;
+  }
+
+  /* Card base */
+  .card-base { @apply bg-surface rounded-lg border border-border shadow-sm; }
+}
+
+/* ── Keyframe animations ─────────────────────────────────────────── */
+@keyframes fadeIn  { from { opacity: 0; }                               to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
