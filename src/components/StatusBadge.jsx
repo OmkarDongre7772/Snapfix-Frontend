@@ -16,6 +16,8 @@ const STATUS_MAP = {
   ACTIVE:              { label: "Active",             color: "bg-blue-50 text-blue-600" },
   APPROVED:            { label: "Approved",           color: "bg-success-light text-success" },
   WITHDRAWN:           { label: "Withdrawn",          color: "bg-gray-100 text-gray-500" },
+  PENDING:             { label: "Pending",            color: "bg-warning-light text-warning" },
+  RELEASED:            { label: "Released",           color: "bg-success-light text-success" },
 };
 
 /**

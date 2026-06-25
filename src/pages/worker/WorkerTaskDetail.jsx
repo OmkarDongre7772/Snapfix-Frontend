@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getTaskApi, startTaskApi, uploadProofApi, retryTaskApi } from "../../api/taskApi";
+import { getTaskApi, retryTaskApi, startTaskApi, uploadProofApi } from "../../api/taskApi";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import StatusBadge from "../../components/StatusBadge";
 import Button from "../../components/Button";
@@ -15,100 +15,121 @@ export default function WorkerTaskDetail() {
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Actions state
+  const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
-  
-  // Proof form state
   const [proofImage, setProofImage] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const [proofRemarks, setProofRemarks] = useState("");
   const [proofError, setProofError] = useState("");
 
-  useEffect(() => {
-    loadTask();
-  }, [id]);
-
-  const loadTask = async () => {
-    setLoading(true); setError(null);
+  const loadTask = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
       const { data } = await getTaskApi(id);
       setTask(data);
-    } catch (e) {
+    } catch {
       setError("Failed to load task details.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => { loadTask(); }, [loadTask]);
 
   const handleStart = async () => {
-    setActionLoading(true); setActionMsg("");
+    setActionLoading(true);
+    setActionMsg("");
     try {
       await startTaskApi(id);
       await loadTask();
-    } catch (e) {
-      setActionMsg(e.response?.data?.message ?? "Failed to start task.");
-    } finally { setActionLoading(false); }
+    } catch (err) {
+      setActionMsg(err.response?.data?.message ?? "Failed to start task.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleRetry = async () => {
-    setActionLoading(true); setActionMsg("");
+    setActionLoading(true);
+    setActionMsg("");
     try {
       await retryTaskApi(id);
       await loadTask();
-    } catch (e) {
-      setActionMsg(e.response?.data?.message ?? "Failed to retry task.");
-    } finally { setActionLoading(false); }
+    } catch (err) {
+      setActionMsg(err.response?.data?.message ?? "Failed to retry task.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
+  const handleImage = (event) => {
+    const file = event.target.files[0];
     if (!file) return;
     setProofImage(file);
     setProofPreview(URL.createObjectURL(file));
     setProofError("");
   };
 
-  const handleUploadProof = async (e) => {
-    e.preventDefault();
-    setProofError("");
-    if (!proofImage) { setProofError("Please select an image showing the completed work."); return; }
-    if (!geo.lat) { setProofError("Please detect your location first."); return; }
+  const validateProof = () => {
+    if (!proofImage) return "Please select an image showing the completed work.";
+    if (!geo.lat || !geo.lng) return "Please detect your current GPS location.";
+    if (!proofRemarks.trim()) return "Please add proof remarks.";
+    if (proofRemarks.length > 1000) return "Remarks must be at most 1000 characters.";
+    return "";
+  };
 
+  const handleUploadProof = async (event) => {
+    event.preventDefault();
+    const validationError = validateProof();
+    if (validationError) {
+      setProofError(validationError);
+      return;
+    }
+
+    setProofError("");
     setActionLoading(true);
     try {
       const fd = new FormData();
       fd.append("image", proofImage);
       fd.append("lat", geo.lat);
       fd.append("lng", geo.lng);
-      if (proofRemarks.trim()) fd.append("remarks", proofRemarks.trim());
+      fd.append("remarks", proofRemarks.trim());
 
       await uploadProofApi(id, fd);
+      setProofImage(null);
+      setProofPreview(null);
+      setProofRemarks("");
       await loadTask();
     } catch (err) {
       setProofError(err.response?.data?.message ?? "Failed to upload proof.");
-    } finally { setActionLoading(false); }
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
-  if (error) return <p className="text-center py-20 text-text-muted">{error}</p>;
+  if (error) return <p className="py-20 text-center text-text-muted">{error}</p>;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 animate-fade-in">
-      <button onClick={() => navigate("/worker/tasks")} className="text-sm text-text-muted hover:text-text flex items-center gap-1 mb-6">
-        ← Back to Tasks
+      <button onClick={() => navigate("/worker/tasks")} className="mb-6 flex items-center gap-1 text-sm text-text-muted hover:text-text">
+        Back to Tasks
       </button>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <StatusBadge status={task.status} />
-        {task.retryCount > 0 && <span className="text-xs font-medium text-warning border border-warning rounded px-2 py-0.5">Retried {task.retryCount} times</span>}
+        {task.retryCount > 0 && (
+          <span className="rounded border border-warning px-2 py-0.5 text-xs font-medium text-warning">
+            Retried {task.retryCount} time{task.retryCount === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
-      <h2 className="text-xl font-semibold text-text mb-4">Task Details</h2>
-      
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <h2 className="mb-4 text-xl font-semibold text-text">Task Details</h2>
+
+      <div className="mb-6 grid grid-cols-2 gap-3">
         <MetaCard label="Report ID"><span className="font-mono text-xs">{task.reportId}</span></MetaCard>
         <MetaCard label="Task ID"><span className="font-mono text-xs">{task.id}</span></MetaCard>
         <MetaCard label="Assigned At">{formatDate(task.assignedAt)}</MetaCard>
@@ -118,81 +139,102 @@ export default function WorkerTaskDetail() {
 
       <div className="divider" />
 
-      {/* Task Actions depending on Status */}
       {task.status === "ASSIGNED" && (
         <Card padding="md" className="border-accent/30 bg-accent-light text-center">
-          <p className="text-sm text-text mb-4">You have been assigned to this report. Once you arrive and begin work, update the status.</p>
+          <p className="mb-4 text-sm text-text">You have been assigned to this report. Start the task once work begins.</p>
           <Button onClick={handleStart} loading={actionLoading}>Start Task</Button>
         </Card>
       )}
 
       {task.status === "IN_PROGRESS" && (
         <div>
-          <h3 className="text-base font-semibold text-text mb-4">Submit Proof of Work</h3>
+          <h3 className="mb-4 text-base font-semibold text-text">Submit Proof of Work</h3>
           <form onSubmit={handleUploadProof} className="flex flex-col gap-4">
             <Card padding="sm">
               <p className="field-label mb-3">Photo evidence</p>
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
               {proofPreview ? (
                 <div className="relative">
-                  <img src={proofPreview} alt="Preview" className="w-full h-48 object-cover rounded-md border border-border" />
-                  <button type="button" onClick={() => { setProofImage(null); setProofPreview(null); }} className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80">✕</button>
+                  <img src={proofPreview} alt="Preview" className="h-48 w-full rounded-md border border-border object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => { setProofImage(null); setProofPreview(null); }}
+                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white hover:bg-black/80"
+                    aria-label="Remove image"
+                  >
+                    x
+                  </button>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileRef.current?.click()} className={`w-full h-36 rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-2 text-text-muted hover:border-accent hover:text-accent transition-colors ${proofError && !proofImage ? "border-danger text-danger" : "border-border"}`}>
-                  <span className="text-3xl">📷</span>
-                  <span className="text-sm font-medium">Click to upload photo of completed work</span>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border text-text-muted transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span className="text-sm font-medium">Upload completed work photo</span>
                 </button>
               )}
             </Card>
 
             <Card padding="sm">
-              <p className="field-label mb-3">Your Location</p>
-              <p className="text-xs text-text-muted mb-3">We need your current location to verify you are at the repair site.</p>
+              <p className="field-label mb-3">Live GPS location</p>
+              <p className="mb-3 text-xs text-text-muted">Detect your current location at the repaired site.</p>
               <Button type="button" variant="secondary" size="sm" loading={geo.loading} onClick={geo.fetch} className="mb-2">
-                {geo.lat ? "📍 Location detected" : "Detect Location"}
+                {geo.lat ? "Location detected" : "Detect location"}
               </Button>
+              {geo.lat && geo.lng && (
+                <p className="text-xs text-text-muted">{Number(geo.lat).toFixed(5)}, {Number(geo.lng).toFixed(5)}</p>
+              )}
               {geo.error && <p className="text-xs text-danger">{geo.error}</p>}
             </Card>
 
             <div>
-              <label className="field-label">Remarks (Optional)</label>
-              <textarea rows={2} value={proofRemarks} onChange={(e) => setProofRemarks(e.target.value)} className="input-base resize-none" placeholder="Any notes about the fix..." />
+              <label htmlFor="proof-remarks" className="field-label">Proof remarks</label>
+              <textarea
+                id="proof-remarks"
+                rows={3}
+                value={proofRemarks}
+                onChange={(event) => setProofRemarks(event.target.value)}
+                className="input-base resize-none"
+                placeholder="Describe what you fixed and any materials used."
+              />
             </div>
 
             {proofError && <p className="text-sm text-danger">{proofError}</p>}
-            
-            <Button type="submit" loading={actionLoading} disabled={!geo.lat || !proofImage}>Submit Proof for Verification</Button>
+
+            <Button type="submit" loading={actionLoading} disabled={!geo.lat || !proofImage || !proofRemarks.trim()}>
+              Submit Proof for Verification
+            </Button>
           </form>
         </div>
       )}
 
       {task.status === "PROOF_SUBMITTED" && (
-        <Card padding="md" className="bg-success-light border-success/30 text-center">
-           <p className="text-sm font-semibold text-success mb-2">Proof Submitted Successfully</p>
-           <p className="text-sm text-text">Waiting for the citizen to verify your work.</p>
+        <Card padding="md" className="border-success/30 bg-success-light text-center">
+          <p className="mb-2 text-sm font-semibold text-success">Proof submitted successfully</p>
+          <p className="text-sm text-text">Waiting for the citizen to verify your work.</p>
         </Card>
       )}
 
       {task.status === "REJECTED" && (
-        <Card padding="md" className="bg-danger-light border-danger text-center">
-           <p className="text-sm font-semibold text-danger mb-2">Work Rejected</p>
-           <p className="text-sm text-text mb-4">The citizen reported that the issue is not fixed. Please address the problem and submit proof again.</p>
-           <Button variant="danger" onClick={handleRetry} loading={actionLoading}>Retry Task</Button>
+        <Card padding="md" className="border-danger bg-danger-light text-center">
+          <p className="mb-2 text-sm font-semibold text-danger">Work rejected</p>
+          <p className="mb-4 text-sm text-text">Address the issue and retry the task. You can submit proof again after retrying.</p>
+          <Button variant="danger" onClick={handleRetry} loading={actionLoading}>Retry Task</Button>
         </Card>
       )}
 
       {task.status === "VERIFIED_BY_CITIZEN" && (
-        <Card padding="md" className="bg-success-light border-success/30 text-center">
-           <p className="text-sm font-semibold text-success mb-2">Work Verified by Citizen</p>
-           <p className="text-sm text-text">Pending final approval from an administrator for payment release.</p>
+        <Card padding="md" className="border-success/30 bg-success-light text-center">
+          <p className="mb-2 text-sm font-semibold text-success">Work verified by citizen</p>
+          <p className="text-sm text-text">Waiting for admin approval before payment can be released.</p>
         </Card>
       )}
 
       {(task.status === "COMPLETED" || task.status === "PAYMENT_RELEASED") && (
-        <Card padding="md" className="bg-success-light border-success/30 text-center">
-           <p className="text-sm font-semibold text-success mb-2">Task Completed</p>
-           <p className="text-sm text-text">Great job! This task is fully resolved.</p>
+        <Card padding="md" className="border-success/30 bg-success-light text-center">
+          <p className="mb-2 text-sm font-semibold text-success">Task completed</p>
+          <p className="text-sm text-text">Payment status is available in your wallet history.</p>
         </Card>
       )}
     </main>
@@ -202,13 +244,13 @@ export default function WorkerTaskDetail() {
 function MetaCard({ label, children }) {
   return (
     <div className="card-base p-3">
-      <p className="text-xs text-text-muted mb-1">{label}</p>
-      <div className="text-sm text-text font-medium">{children}</div>
+      <p className="mb-1 text-xs text-text-muted">{label}</p>
+      <div className="text-sm font-medium text-text">{children}</div>
     </div>
   );
 }
 
 function formatDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 }

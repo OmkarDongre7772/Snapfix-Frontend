@@ -10,131 +10,179 @@ import Card from "../../components/Card";
 import Spinner from "../../components/Spinner";
 
 export default function WorkerReportDetail() {
-  const { id }  = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const [report,    setReport]    = useState(null);
-  const [myBid,     setMyBid]     = useState(null); // existing bid on this report, if any
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState(null);
-
-  const [amount,    setAmount]    = useState("");
-  const [duration,  setDuration]  = useState("");
-  const [note,      setNote]      = useState("");
+  const [report, setReport] = useState(null);
+  const [myBid, setMyBid] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [amount, setAmount] = useState("");
+  const [duration, setDuration] = useState("");
+  const [message, setMessage] = useState("");
   const [bidErrors, setBidErrors] = useState({});
-  const [bidding,   setBidding]   = useState(false);
-  const [bidMsg,    setBidMsg]    = useState("");
+  const [bidding, setBidding] = useState(false);
+  const [bidMsg, setBidMsg] = useState("");
 
   useEffect(() => {
     (async () => {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError("");
       try {
         const [{ data: rep }, { data: bids }] = await Promise.all([
           getReportApi(id),
           getMyBidsApi(),
         ]);
         setReport(rep);
-        const existing = bids.find((b) => b.reportId === rep.id);
-        if (existing) setMyBid(existing);
-      } catch (e) {
+        setMyBid(bids.find((bid) => bid.reportId === rep.id) ?? null);
+      } catch {
         setError("Failed to load report details.");
-      } finally { setLoading(false); }
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [id]);
 
   const validateBid = () => {
-    const e = {};
-    if (!amount || isNaN(amount) || Number(amount) < 0) e.amount   = "Enter a valid bid amount (≥ 0).";
-    if (!duration || isNaN(duration) || Number(duration) < 0) e.duration = "Enter estimated days (≥ 0).";
-    return e;
+    const nextErrors = {};
+    if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
+      nextErrors.amount = "Enter a bid amount greater than 0.";
+    }
+    if (!duration || Number.isNaN(Number(duration)) || Number(duration) <= 0) {
+      nextErrors.duration = "Enter estimated completion time in days.";
+    }
+    if (!message.trim()) {
+      nextErrors.message = "Add a message for the admin.";
+    } else if (message.length > 1000) {
+      nextErrors.message = "Message must be at most 1000 characters.";
+    }
+    return nextErrors;
   };
 
-  const handlePlaceBid = async (e) => {
-    e.preventDefault();
+  const handlePlaceBid = async (event) => {
+    event.preventDefault();
     setBidMsg("");
-    const errs = validateBid();
-    if (Object.keys(errs).length) { setBidErrors(errs); return; }
+    const nextErrors = validateBid();
+    if (Object.keys(nextErrors).length) {
+      setBidErrors(nextErrors);
+      return;
+    }
+
     setBidding(true);
     try {
-      const { data } = await placeBidApi(report.id, Number(amount), Number(duration), note);
+      const { data } = await placeBidApi(report.id, Number(amount), Number(duration), message.trim());
       setMyBid(data);
-      setBidMsg("Bid placed successfully!");
+      setBidMsg("Bid placed successfully. Admin will review it.");
     } catch (err) {
-      const msg = err.response?.status === 409
-        ? "You've already placed a bid on this report."
-        : err.response?.data?.message ?? "Failed to place bid.";
-      setBidMsg(msg);
-    } finally { setBidding(false); }
+      setBidMsg(err.response?.data?.message ?? "Failed to place bid.");
+    } finally {
+      setBidding(false);
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
-  if (error)   return <p className="text-center py-20 text-text-muted">{error}</p>;
+  if (error) return <p className="py-20 text-center text-text-muted">{error}</p>;
 
   const canBid = report.status === "CREATED" && !myBid;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 animate-fade-in">
-      <button onClick={() => navigate(-1)} className="text-sm text-text-muted hover:text-text flex items-center gap-1 mb-6">
-        ← Back
+      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-1 text-sm text-text-muted hover:text-text">
+        Back
       </button>
 
-      {/* Report image */}
       {report.imageUrl && (
-        <img src={report.imageUrl} alt={report.description}
-          className="w-full h-56 object-cover rounded-lg border border-border mb-6" />
+        <img src={report.imageUrl} alt={report.description} className="mb-6 h-56 w-full rounded-lg border border-border object-cover" />
       )}
 
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <CategoryBadge category={report.category} />
         <StatusBadge status={report.status} />
       </div>
-      <h2 className="text-xl font-semibold text-text mb-4 leading-snug">{report.description}</h2>
+      <h2 className="mb-4 text-xl font-semibold leading-snug text-text">{report.description}</h2>
 
-      {/* Meta */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <MetaCard label="Location">{report.lat ? `${Number(report.lat).toFixed(4)}, ${Number(report.lng).toFixed(4)}` : "—"}</MetaCard>
+      <div className="mb-6 grid grid-cols-2 gap-3">
+        <MetaCard label="Location">{report.lat ? `${Number(report.lat).toFixed(4)}, ${Number(report.lng).toFixed(4)}` : "-"}</MetaCard>
         <MetaCard label="Support count">{report.supportCount ?? 0}</MetaCard>
       </div>
 
       <div className="divider" />
 
-      {/* Bid section */}
       {myBid ? (
         <Card padding="md" className="border-success/30 bg-success-light">
-          <p className="text-sm font-semibold text-success mb-2">✓ Your bid is placed</p>
+          <p className="mb-2 text-sm font-semibold text-success">Your bid is placed</p>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-xs text-text-muted">Bid amount</p><p className="font-medium text-text">₹{myBid.bidAmount}</p></div>
-            <div><p className="text-xs text-text-muted">Duration est.</p><p className="font-medium text-text">{myBid.durationEstimate} day(s)</p></div>
-            <div><p className="text-xs text-text-muted">Status</p><StatusBadge status={myBid.status} /></div>
-            {myBid.resourceNote && <div><p className="text-xs text-text-muted">Notes</p><p className="text-text">{myBid.resourceNote}</p></div>}
+            <div>
+              <p className="text-xs text-text-muted">Bid amount</p>
+              <p className="font-medium text-text">Rs. {myBid.bidAmount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">Estimated time</p>
+              <p className="font-medium text-text">{myBid.durationEstimate} day(s)</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">Status</p>
+              <StatusBadge status={myBid.status} />
+            </div>
+            {myBid.resourceNote && (
+              <div className="col-span-2">
+                <p className="text-xs text-text-muted">Message</p>
+                <p className="text-text">{myBid.resourceNote}</p>
+              </div>
+            )}
           </div>
+          {bidMsg && <p className="mt-3 text-sm text-success">{bidMsg}</p>}
         </Card>
       ) : canBid ? (
         <div>
-          <h3 className="text-base font-semibold text-text mb-4">Place a bid</h3>
+          <h3 className="mb-4 text-base font-semibold text-text">Place a bid</h3>
           <form onSubmit={handlePlaceBid} noValidate className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3">
-              <Input id="bid-amount" label="Bid amount (₹)" type="number" min="0" step="0.01"
-                placeholder="500" value={amount} onChange={(e) => setAmount(e.target.value)} error={bidErrors.amount} />
-              <Input id="bid-duration" label="Duration estimate (days)" type="number" min="0"
-                placeholder="3" value={duration} onChange={(e) => setDuration(e.target.value)} error={bidErrors.duration} />
+              <Input
+                id="bid-amount"
+                label="Bid amount"
+                type="number"
+                min="1"
+                step="0.01"
+                placeholder="500"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                error={bidErrors.amount}
+              />
+              <Input
+                id="bid-duration"
+                label="Estimated time (days)"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="3"
+                value={duration}
+                onChange={(event) => setDuration(event.target.value)}
+                error={bidErrors.duration}
+              />
             </div>
             <div>
-              <label htmlFor="bid-note" className="field-label">Resource note (optional)</label>
-              <textarea id="bid-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)}
-                placeholder="Tools, materials, or special notes…"
-                className="input-base resize-none" />
+              <label htmlFor="bid-message" className="field-label">Message to admin</label>
+              <textarea
+                id="bid-message"
+                rows={3}
+                value={message}
+                onChange={(event) => {
+                  setMessage(event.target.value);
+                  if (bidErrors.message) setBidErrors((prev) => ({ ...prev, message: "" }));
+                }}
+                placeholder="Explain your approach, materials, and availability."
+                className={`input-base resize-none ${bidErrors.message ? "border-danger" : ""}`}
+              />
+              {bidErrors.message && <p className="mt-1 text-xs text-danger">{bidErrors.message}</p>}
             </div>
             {bidMsg && <p className="text-sm text-danger">{bidMsg}</p>}
             <Button id="place-bid-btn" type="submit" loading={bidding}>Place bid</Button>
           </form>
         </div>
       ) : (
-        <p className="text-sm text-text-muted">
-          {report.status !== "CREATED" ? "This report is no longer accepting bids." : ""}
-        </p>
+        <p className="text-sm text-text-muted">This report is no longer accepting bids.</p>
       )}
-      {bidMsg && myBid && <p className="text-sm text-success mt-3">{bidMsg}</p>}
     </main>
   );
 }
@@ -142,7 +190,7 @@ export default function WorkerReportDetail() {
 function MetaCard({ label, children }) {
   return (
     <div className="card-base p-3">
-      <p className="text-xs text-text-muted mb-1">{label}</p>
+      <p className="mb-1 text-xs text-text-muted">{label}</p>
       <p className="text-sm font-medium text-text">{children}</p>
     </div>
   );

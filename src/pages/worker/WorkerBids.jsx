@@ -9,20 +9,23 @@ import Modal from "../../components/Modal";
 import Card from "../../components/Card";
 
 export default function WorkerBids() {
-  const [bids,     setBids]     = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [withdrawId, setWithdrawId] = useState(null); // bidId pending confirmation
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [withdrawId, setWithdrawId] = useState(null);
   const [withdrawing, setWithdrawing] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError("");
     try {
       const { data } = await getMyBidsApi();
       setBids(data);
-    } catch (e) {
-      setError(e.response?.data?.message ?? "Failed to load bids.");
-    } finally { setLoading(false); }
+    } catch (err) {
+      setError(err.response?.data?.message ?? "Failed to load bids.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -31,9 +34,11 @@ export default function WorkerBids() {
     setWithdrawing(true);
     try {
       await withdrawBidApi(withdrawId);
-      setBids((prev) => prev.filter((b) => b.id !== withdrawId));
-    } catch { /* ignore */ }
-    finally { setWithdrawing(false); setWithdrawId(null); }
+      setBids((prev) => prev.filter((bid) => bid.id !== withdrawId));
+    } finally {
+      setWithdrawing(false);
+      setWithdrawId(null);
+    }
   };
 
   return (
@@ -41,45 +46,48 @@ export default function WorkerBids() {
       <div className="mb-6">
         <p className="section-label mb-1">Worker</p>
         <h2 className="text-2xl font-semibold text-text">My Bids</h2>
+        <p className="mt-1 text-xs text-text-muted">Admin accepts or rejects bids from this list.</p>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       ) : error ? (
         <div className="rounded-lg border border-danger-light bg-danger-light px-4 py-3 text-sm text-danger">
-          {error} <button onClick={load} className="underline ml-1">Retry</button>
+          {error} <button onClick={load} className="ml-1 underline">Retry</button>
         </div>
       ) : bids.length === 0 ? (
-        <EmptyState icon="🤝" title="No bids yet" description="Browse nearby reports and place your first bid to get started." />
+        <EmptyState title="No bids yet" description="Browse nearby created reports and place your first bid to get started." />
       ) : (
         <div className="flex flex-col gap-3">
           {bids.map((bid) => (
             <Card key={bid.id} padding="md" className="flex items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                   <StatusBadge status={bid.status} />
-                  <span className="text-xs text-text-muted font-mono">{bid.reportId}</span>
+                  <Link to={`/worker/reports/${bid.reportId}`} className="font-mono text-xs text-accent hover:underline">
+                    {bid.reportId}
+                  </Link>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                   <div>
                     <p className="text-xs text-text-muted">Amount</p>
-                    <p className="font-semibold text-text">₹{bid.bidAmount}</p>
+                    <p className="font-semibold text-text">Rs. {bid.bidAmount}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted">Duration est.</p>
+                    <p className="text-xs text-text-muted">Estimated time</p>
                     <p className="font-medium text-text">{bid.durationEstimate} day(s)</p>
                   </div>
                   {bid.resourceNote && (
                     <div className="col-span-2 sm:col-span-1">
-                      <p className="text-xs text-text-muted">Notes</p>
-                      <p className="text-text truncate">{bid.resourceNote}</p>
+                      <p className="text-xs text-text-muted">Message</p>
+                      <p className="truncate text-text">{bid.resourceNote}</p>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-text-subtle mt-2">{formatDate(bid.createdAt)}</p>
+                <p className="mt-2 text-xs text-text-subtle">{formatDate(bid.createdAt)}</p>
               </div>
 
-              <div className="flex flex-col gap-2 flex-shrink-0">
+              <div className="flex flex-shrink-0 flex-col gap-2">
                 {bid.status === "ACTIVE" && (
                   <Button
                     id={`withdraw-bid-${bid.id}`}
@@ -106,7 +114,7 @@ export default function WorkerBids() {
         open={!!withdrawId}
         onClose={() => setWithdrawId(null)}
         title="Withdraw bid?"
-        description="This will remove your bid from the report. You can place a new bid if it's still open."
+        description="This will remove your bid from the report. You can place a new bid if the report is still open."
         confirmLabel="Withdraw"
         onConfirm={handleWithdraw}
         loading={withdrawing}
