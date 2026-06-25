@@ -13,9 +13,7 @@ export const startTaskApi = (id) => api.patch(`/tasks/${id}/start`);
 
 // POST /tasks/{taskId}/proof  (multipart/form-data)
 export const uploadProofApi = (taskId, formData) =>
-  api.post(`/tasks/${taskId}/proof`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  api.post(`/tasks/${taskId}/proof`, formData);
 
 // POST /tasks/{taskId}/retry
 export const retryTaskApi = (taskId) => api.post(`/tasks/${taskId}/retry`);

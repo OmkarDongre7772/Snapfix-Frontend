@@ -1,9 +1,7 @@
 import api from "./axiosInstance";
 
 export const createReportApi = (formData) =>
-  api.post("/reports", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  api.post("/reports", formData);
 
 export const getReportApi = (id) => api.get(`/reports/${id}`);
 
