@@ -1,16 +1,47 @@
-# React + Vite
+# SnapFix Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Vite frontend for SnapFix.
 
-Currently, two official plugins are available:
+## Local Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## React Compiler
+2. Configure the local backend URL in `.env`:
+   ```env
+   VITE_API_BASE_URL=http://localhost:8080
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-## Expanding the Oxlint configuration
+## Vercel Deployment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+The production build is configured to call:
+
+```env
+VITE_API_BASE_URL=https://snapfix-backend-1k9b.onrender.com
+```
+
+Vercel settings:
+
+- Framework Preset: `Vite`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+`vercel.json` rewrites all routes to `index.html`, so React Router paths such as `/citizen/home`, `/worker/tasks`, and `/admin/reports` work after refresh or direct navigation.
+
+## Backend Requirement
+
+The backend must allow the deployed Vercel frontend origin in CORS. After deployment, add your Vercel URL, for example:
+
+```text
+https://your-vercel-project.vercel.app
+```
+
+If you add a custom domain later, add that domain to backend CORS too.
